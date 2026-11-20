@@ -57,6 +57,11 @@ jobs:
                - **Información faltante**: preguntas al autor si el reporte es ambiguo
                  (omite la sección si no hace falta).
 
+            Formato: todo el comentario debe estar en Markdown que GitHub renderice
+            (GFM): encabezados `##`, **negritas**, listas con `-`, código en bloques
+            con triple backtick y lenguaje (```js), nombres de archivo/función en
+            `código en línea`. Sin HTML ni sintaxis que GitHub no soporte.
+
             Sé conciso y específico; no inventes código que no hayas leído.
           claude_args: >-
             --allowed-tools "Read,Grep,Glob,Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh issue comment:*),Bash(gh label list:*)"
