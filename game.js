@@ -15,6 +15,72 @@ const COLORS = [
   '#ffb74d', // L - orange
 ];
 
+// Textura pixel art 6×6: 1 = luz, -1 = sombra, 0 = color base
+const PIXEL_TEX = [
+  [ 1, 1, 1, 1, 1, 0],
+  [ 1, 0, 0, 1, 0,-1],
+  [ 1, 0, 0, 0, 0,-1],
+  [ 1, 1, 0, 0, 0,-1],
+  [ 1, 0, 0, 0,-1,-1],
+  [ 0,-1,-1,-1,-1,-1],
+];
+
+function fillPixelTex(c, px, py, p, value) {
+  for (let r = 0; r < 6; r++)
+    for (let k = 0; k < 6; k++)
+      if (PIXEL_TEX[r][k] === value) c.fillRect(px + k * p, py + r * p, p, p);
+}
+
+// Cada skin: paleta (índices 1–7 = I,O,T,S,Z,J,L) + cómo dibujar un bloque en (px, py) de lado s
+const SKINS = {
+  retro: {
+    colors: COLORS,
+    draw(c, px, py, s, color) {
+      c.fillStyle = color;
+      c.fillRect(px + 1, py + 1, s - 2, s - 2);
+      c.fillStyle = 'rgba(255,255,255,0.12)';
+      c.fillRect(px + 1, py + 1, s - 2, 4);
+    },
+  },
+  neon: {
+    colors: [null, '#00f0ff', '#fff200', '#d400ff', '#39ff14', '#ff073a', '#2979ff', '#ff8c00'],
+    draw(c, px, py, s, color) {
+      c.shadowColor = color;
+      c.shadowBlur = s * 0.4;
+      c.fillStyle = color;
+      c.fillRect(px + 3, py + 3, s - 6, s - 6);
+      c.shadowBlur = 0; // que el glow no se filtre a la rejilla
+      c.fillStyle = 'rgba(0,0,0,0.45)';
+      c.fillRect(px + 6, py + 6, s - 12, s - 12);
+    },
+  },
+  pastel: {
+    colors: [null, '#a8e6ef', '#fff1a8', '#d9b8f0', '#b8e6b8', '#f5b5b5', '#b8d4f5', '#ffd6a8'],
+    draw(c, px, py, s, color) {
+      c.fillStyle = color;
+      c.strokeStyle = 'rgba(0,0,0,0.12)';
+      c.lineWidth = 1;
+      c.beginPath();
+      if (c.roundRect) c.roundRect(px + 1.5, py + 1.5, s - 3, s - 3, s * 0.25);
+      else c.rect(px + 1.5, py + 1.5, s - 3, s - 3); // navegadores sin roundRect
+      c.fill();
+      c.stroke();
+    },
+  },
+  pixel: {
+    colors: [null, '#3cbcfc', '#f8d030', '#b040e0', '#58d854', '#f83800', '#0078f8', '#fc9838'],
+    draw(c, px, py, s, color) {
+      const p = s / 6;
+      c.fillStyle = color;
+      c.fillRect(px, py, s, s);
+      c.fillStyle = 'rgba(255,255,255,0.35)';
+      fillPixelTex(c, px, py, p, 1);
+      c.fillStyle = 'rgba(0,0,0,0.25)';
+      fillPixelTex(c, px, py, p, -1);
+    },
+  },
+};
+
 const PIECES = [
   null,
   [[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]], // I
@@ -159,13 +225,8 @@ function updateHUD() {
 
 function drawBlock(context, x, y, colorIndex, size, alpha) {
   if (!colorIndex) return;
-  const color = COLORS[colorIndex];
   context.globalAlpha = alpha ?? 1;
-  context.fillStyle = color;
-  context.fillRect(x * size + 1, y * size + 1, size - 2, size - 2);
-  // highlight
-  context.fillStyle = 'rgba(255,255,255,0.12)';
-  context.fillRect(x * size + 1, y * size + 1, size - 2, 4);
+  skin.draw(context, x * size, y * size, size, skin.colors[colorIndex]);
   context.globalAlpha = 1;
 }
 
@@ -330,5 +391,40 @@ themeToggle.addEventListener('click', () => {
 let savedTheme = null;
 try { savedTheme = localStorage.getItem(THEME_KEY); } catch (_) {}
 applyTheme(savedTheme === 'light' ? 'light' : 'dark');
+
+// ---- Skins visuales ----
+const skinSelect = document.getElementById('skin-select');
+const SKIN_KEY = 'tetris-skin';
+let skin = SKINS.retro;
+
+function applySkin(name) {
+  if (!Object.prototype.hasOwnProperty.call(SKINS, name)) name = 'retro';
+  skin = SKINS[name];
+  skinSelect.value = name;
+  document.documentElement.dataset.skin = name; // el CSS ajusta fondo y --grid (neon)
+  gridColor = getComputedStyle(document.documentElement).getPropertyValue('--grid').trim() || gridColor;
+  if (board && current && (paused || gameOver)) {
+    draw();
+    drawNext();
+  }
+}
+
+skinSelect.addEventListener('change', () => {
+  try { localStorage.setItem(SKIN_KEY, skinSelect.value); } catch (_) {}
+  applySkin(skinSelect.value);
+  skinSelect.blur(); // evita que las flechas cambien la skin durante la partida
+});
+
+// Si el select conserva el foco (cerrado sin elegir), las flechas juegan en vez de cambiar la skin
+skinSelect.addEventListener('keydown', e => {
+  if (!paused && !gameOver && e.code.startsWith('Arrow')) {
+    e.preventDefault();
+    skinSelect.blur();
+  }
+});
+
+let savedSkin = null;
+try { savedSkin = localStorage.getItem(SKIN_KEY); } catch (_) {}
+applySkin(savedSkin);
 
 init();
